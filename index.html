@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perplexity Explorer</title>
+  <style>
+    /* =========================================================
+       Clean Light 3D Theme — White 3D Cards & Blue/Purple Keys
+       ========================================================= */
+    :root {
+      --bg-top: #f5f7ff;
+      --bg-bottom: #eaefff;
+      --card-bg: #ffffff;
+      --card-border: #d8e0f5;
+      --card-edge: #cad4f0;
+      --text-main: #1e243b;
+      --text-muted: #5a6484;
+      --blue: #3b82f6;
+      --indigo: #4f46e5;
+      --purple: #7c3aed;
+      --btn-edge: #3730a3;
+      --soft-surface: #f4f6ff;
+      --soft-edge: #c7d2fe;
+      --error-bg: #fef2f2;
+      --error-border: #fca5a5;
+      --error-text: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text-main);
+      background:
+        radial-gradient(circle at 15% 15%, #e0e7ff 0%, transparent 45%),
+        radial-gradient(circle at 85% 25%, #ede9fe 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, #dbeafe 0%, transparent 50%),
+        linear-gradient(180deg, #eef2ff 0%, #e4eaff 50%, #eef2ff 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+
+    /* Multi-layered 3D Interactive Background Scene */
+    .scene-backdrop {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      perspective: 680px;
+    }
+
+    /* Soft drifting pastel aurora light spheres */
+    .aurora-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(68px);
+      opacity: 0.65;
+      animation: floatOrb 18s infinite alternate ease-in-out;
+    }
+
+    .orb-1 {
+      width: 440px;
+      height: 440px;
+      left: -80px;
+      top: -60px;
+      background: radial-gradient(circle, rgba(96, 165, 250, 0.55), rgba(99, 102, 241, 0.15));
+    }
+
+    .orb-2 {
+      width: 480px;
+      height: 480px;
+      right: -100px;
+      top: 18%;
+      background: radial-gradient(circle, rgba(167, 139, 250, 0.55), rgba(124, 58, 237, 0.12));
+      animation-duration: 22s;
+      animation-delay: -5s;
+    }
+
+    .orb-3 {
+      width: 420px;
+      height: 420px;
+      left: 18%;
+      bottom: -110px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.42), rgba(129, 140, 248, 0.15));
+      animation-duration: 25s;
+      animation-delay: -11s;
+    }
+
+    @keyframes floatOrb {
+      0%   { transform: translate3d(0, 0, 0) scale(1); }
+      50%  { transform: translate3d(40px, -30px, 0) scale(1.08); }
+      100% { transform: translate3d(-30px, 35px, 0) scale(0.95); }
+    }
+
+    /* Animated 3D perspective horizon grids (floor & sky) */
+    .grid-plane {
+      position: absolute;
+      width: 220%;
+      height: 130%;
+      left: -60%;
+      bottom: -35%;
+      background-image:
+        linear-gradient(to right, rgba(79, 70, 229, 0.16) 1.5px, transparent 1.5px),
+        linear-gradient(to bottom, rgba(124, 58, 237, 0.16) 1.5px, transparent 1.5px);
+      background-size: 56px 56px;
+      transform: rotateX(68deg);
+      animation: glideGrid 4s linear infinite;
+      mask-image: radial-gradient(ellipse at 50% 35%, rgba(0, 0, 0, 0.75) 5%, transparent 68%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 35%, rgba(0, 0, 0, 0.75) 5%, transparent 68%);
+    }
+
+    .grid-ceiling {
+      position: absolute;
+      width: 220%;
+      height: 100%;
+      left: -60%;
+      top: -42%;
+      background-image:
+        linear-gradient(to right, rgba(59, 130, 246, 0.12) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(99, 102, 241, 0.12) 1px, transparent 1px);
+      background-size: 64px 64px;
+      transform: rotateX(-68deg);
+      animation: glideGrid 6s linear infinite reverse;
+      mask-image: radial-gradient(ellipse at 50% 65%, rgba(0, 0, 0, 0.55) 5%, transparent 65%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 65%, rgba(0, 0, 0, 0.55) 5%, transparent 65%);
+    }
+
+    @keyframes glideGrid {
+      0%   { background-position: 0 0; }
+      100% { background-position: 0 56px; }
+    }
+
+    /* Full-screen 3D Canvas for floating polyhedra & neural token network */
+    #bg-3d-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Main container sits above the 3D scene */
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 36px 20px 72px;
+      perspective: 1200px;
+    }
+
+    /* Header with a pure-CSS rotating 3D token cube */
+    .hero {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 30px;
+      padding: 24px 28px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      box-shadow:
+        0 7px 0 var(--card-edge),
+        0 20px 38px rgba(67, 56, 202, 0.12);
+    }
+
+    .cube-stage {
+      width: 64px;
+      height: 64px;
+      perspective: 260px;
+      flex-shrink: 0;
+    }
+
+    .cube {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: spinCube 14s infinite linear;
+    }
+
+    .cube-face {
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.92), rgba(124, 58, 237, 0.92));
+      border: 2px solid rgba(255, 255, 255, 0.65);
+      box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.25);
+      user-select: none;
+    }
+
+    .face-front  { transform: translateZ(32px); }
+    .face-back   { transform: rotateY(180deg) translateZ(32px); }
+    .face-right  { transform: rotateY(90deg) translateZ(32px); }
+    .face-left   { transform: rotateY(-90deg) translateZ(32px); }
+    .face-top    { transform: rotateX(90deg) translateZ(32px); }
+    .face-bottom { transform: rotateX(-90deg) translateZ(32px); }
+
+    @keyframes spinCube {
+      0%   { transform: rotateX(-18deg) rotateY(0deg); }
+      100% { transform: rotateX(-18deg) rotateY(360deg); }
+    }
+
+    .hero h1 {
+      margin: 0 0 4px;
+      font-size: 2rem;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #312e81, #4f46e5, #7c3aed);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.98rem;
+    }
+
+    /* 3D Extruded White Section Cards */
+    .card-3d {
+      background: rgba(255, 255, 255, 0.93);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 26px 28px;
+      margin-bottom: 28px;
+      box-shadow:
+        0 7px 0 var(--card-edge),
+        0 18px 34px rgba(59, 73, 148, 0.11);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      transform-style: preserve-3d;
+    }
+
+    .card-3d:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 9px 0 var(--card-edge),
+        0 24px 42px rgba(59, 73, 148, 0.12);
+    }
+
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    /* 3D Number Badge on each section */
+    .step-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.92rem;
+      box-shadow: 0 3px 0 var(--btn-edge);
+      flex-shrink: 0;
+    }
+
+    .simulated-badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #5b21b6;
+      background: #f3e8ff;
+      border: 1px solid #d8b4fe;
+      box-shadow: 0 2px 0 #d8b4fe;
+    }
+
+    /* Recessed 3D Text Input */
+    .sentence-input,
+    .hand-input {
+      width: 100%;
+      padding: 13px 16px;
+      font-size: 1.05rem;
+      color: var(--text-main);
+      background: #f9faff;
+      border: 2px solid #cbd5f0;
+      border-radius: 14px;
+      box-shadow: inset 0 3px 6px rgba(59, 73, 148, 0.07);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .sentence-input:focus,
+    .hand-input:focus {
+      background: #ffffff;
+      border-color: var(--indigo);
+      box-shadow:
+        inset 0 2px 4px rgba(79, 70, 229, 0.06),
+        0 0 0 4px rgba(99, 102, 241, 0.15);
+    }
+
+    /* 3D Push-Buttons (Primary Blue/Purple & Keycap Sample Buttons) */
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .row-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.15s ease;
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    /* Main Blue/Purple 3D Button */
+    .btn-primary {
+      padding: 12px 22px;
+      font-size: 1rem;
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--indigo) 50%, var(--purple) 100%);
+      box-shadow:
+        0 5px 0 var(--btn-edge),
+        0 10px 18px rgba(79, 70, 229, 0.25);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow:
+        0 7px 0 var(--btn-edge),
+        0 14px 22px rgba(79, 70, 229, 0.30);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow:
+        0 2px 0 var(--btn-edge),
+        0 4px 8px rgba(79, 70, 229, 0.20);
+    }
+
+    /* Soft Blue/Purple 3D Keycap Button (Samples, Presets, Add) */
+    .btn-chip {
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      color: #4338ca;
+      background: linear-gradient(180deg, #ffffff 0%, #eef2ff 100%);
+      border: 1px solid #c7d2fe;
+      box-shadow: 0 4px 0 var(--soft-edge);
+    }
+
+    .btn-chip:hover:not(:disabled) {
+      transform: translateY(-1px);
+      background: linear-gradient(180deg, #ffffff 0%, #e0e7ff 100%);
+      box-shadow: 0 5px 0 #a5b4fc;
+    }
+
+    .btn-chip:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #a5b4fc;
+    }
+
+    /* Small Remove button for Section 4 rows */
+    .btn-remove {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      color: #6b21a8;
+      background: #faf5ff;
+      border: 1px solid #e9d5ff;
+      box-shadow: 0 3px 0 #d8b4fe;
+    }
+
+    .btn-remove:hover:not(:disabled) {
+      background: #f3e8ff;
+    }
+
+    .btn-remove:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #d8b4fe;
+    }
+
+    /* Action & Status bar in Section 1 */
+    .action-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .status-line {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: var(--soft-surface);
+      border: 1px solid #dfe5fa;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+
+    .status-loading .status-dot {
+      background: var(--indigo);
+      animation: pulseDot 1s infinite ease-in-out;
+    }
+
+    .status-ready .status-dot {
+      background: #10b981;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(0.85); opacity: 0.6; }
+      50%      { transform: scale(1.25); opacity: 1; }
+    }
+
+    /* Clear Red Error Box */
+    .error-box {
+      display: none;
+      margin-top: 16px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      background: var(--error-bg);
+      border: 2px solid var(--error-border);
+      box-shadow: 0 4px 0 #fecaca;
+      color: var(--error-text);
+      font-weight: 600;
+    }
+
+    /* Placeholder message before model runs */
+    .empty-hint {
+      padding: 20px;
+      border-radius: 14px;
+      background: var(--soft-surface);
+      border: 1px dashed #c7d2fe;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* Token Probability Table */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 4px 0 #e2e8f8;
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background: #f4f6ff;
+      color: #3730a3;
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 12px 16px;
+      border-bottom: 2px solid #dfe5fa;
+    }
+
+    td {
+      padding: 11px 16px;
+      border-bottom: 1px solid #eef2ff;
+      font-size: 0.96rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .token-chip {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.93rem;
+      font-weight: 600;
+      color: #312e81;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      box-shadow: 0 2px 0 #c7d2fe;
+      white-space: pre;
+    }
+
+    /* Three Calculation Steps */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .calc-step {
+      padding: 15px 18px;
+      border-radius: 14px;
+      background: #f8f9ff;
+      border: 1px solid #dce3f9;
+      box-shadow: 0 4px 0 #dce3f9;
+    }
+
+    .calc-step strong {
+      color: #3730a3;
+    }
+
+    .formula-text {
+      margin-top: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.93rem;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    /* 3D Highlight Pedestal for Step 3 Perplexity */
+    .perplexity-pedestal {
+      padding: 20px 24px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+      border: 2px solid #a5b4fc;
+      box-shadow:
+        0 7px 0 #a5b4fc,
+        0 14px 26px rgba(79, 70, 229, 0.14);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transition: transform 0.15s ease;
+    }
+
+    .ppl-big-number {
+      font-size: 2.6rem;
+      font-weight: 800;
+      line-height: 1.05;
+      padding: 8px 18px;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #4338ca;
+      border: 2px solid #c7d2fe;
+      box-shadow:
+        0 5px 0 #c7d2fe,
+        0 8px 16px rgba(67, 56, 202, 0.12);
+    }
+
+    .log-note {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Section 3: 3D Horizontal Prediction Bars */
+    .bars-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 76px;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: #f9faff;
+      border: 1px solid #e2e8f8;
+    }
+
+    /* Highlighted #1 top prediction */
+    .bar-row.top-prediction {
+      background: linear-gradient(90deg, #eef2ff, #f5f3ff);
+      border: 2px solid #818cf8;
+      box-shadow:
+        0 5px 0 #a5b4fc,
+        0 10px 20px rgba(79, 70, 229, 0.12);
+    }
+
+    .bar-track {
+      height: 22px;
+      border-radius: 11px;
+      background: #e6ebfa;
+      box-shadow: inset 0 2px 4px rgba(30, 36, 59, 0.10);
+      overflow: hidden;
+      padding: 2px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      min-width: 6px;
+      border-radius: 9px;
+      background: linear-gradient(180deg, #60a5fa 0%, #4f46e5 100%);
+      box-shadow: 0 2px 4px rgba(79, 70, 229, 0.35);
+      transition: width 0.35s ease;
+    }
+
+    .bar-row.top-prediction .bar-fill {
+      background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 60%, #9333ea 100%);
+    }
+
+    .bar-pct {
+      text-align: right;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #312e81;
+    }
+
+    .top-tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: var(--purple);
+      color: #ffffff;
+      vertical-align: middle;
+    }
+
+    /* Section 4: Editable Token Rows */
+    .hand-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .hand-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 160px auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #f8f9ff;
+      border: 1px solid #dce3f9;
+      box-shadow: 0 3px 0 #dce3f9;
+    }
+
+    .hand-row .hand-input {
+      padding: 9px 12px;
+      font-size: 0.95rem;
+    }
+
+    .row-num {
+      font-weight: 700;
+      color: var(--indigo);
+      text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        flex-direction: column;
+        text-align: center;
+      }
+      .bar-row {
+        grid-template-columns: 100px 1fr 64px;
+        gap: 8px;
+      }
+      .hand-row {
+        grid-template-columns: 28px 1fr 110px auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Interactive 3D Background: Aurora Orbs + Horizon Grids + 3D Polyhedra & Token Constellation -->
+  <div class="scene-backdrop" aria-hidden="true">
+    <div class="aurora-orb orb-1"></div>
+    <div class="aurora-orb orb-2"></div>
+    <div class="aurora-orb orb-3"></div>
+    <div class="grid-ceiling"></div>
+    <div class="grid-plane"></div>
+    <canvas id="bg-3d-canvas"></canvas>
+  </div>
+
+  <main class="page-wrap">
+    <!-- 3D Hero Header -->
+    <header class="hero">
+      <div class="cube-stage" aria-hidden="true">
+        <div class="cube">
+          <div class="cube-face face-front">PPL</div>
+          <div class="cube-face face-back">1/P</div>
+          <div class="cube-face face-right">ln P</div>
+          <div class="cube-face face-left">GPT</div>
+          <div class="cube-face face-top">N</div>
+          <div class="cube-face face-bottom">P(w)</div>
+        </div>
+      </div>
+      <div>
+        <h1>Perplexity Explorer</h1>
+        <p>See how a real language model scores every token in your sentence — and build perplexity step by step in 3D.</p>
+      </div>
+    </header>
+
+    <!-- =====================================================
+         Section 1 – Type a sentence
+         ===================================================== -->
+    <section class="card-3d" aria-labelledby="sec1-title">
+      <div class="section-header">
+        <h2 class="section-title" id="sec1-title">
+          <span class="step-pill">1</span>
+          Type a sentence
+        </h2>
+      </div>
+
+      <label for="sentence-input" class="row-label" style="display:block; margin-bottom:8px;">
+        Sentence to evaluate with DistilGPT-2 (runs right in your browser):
+      </label>
+      <input
+        id="sentence-input"
+        class="sentence-input"
+        type="text"
+        value="I love Python"
+        placeholder="Type a sentence…"
+      />
+
+      <!-- Three sample sentence buttons -->
+      <div class="button-row">
+        <span class="row-label">Samples:</span>
+        <button type="button" class="btn-chip sample-btn" data-sentence="I love Python">
+          I love Python
+        </button>
+        <button type="button" class="btn-chip sample-btn" data-sentence="Python love I">
+          Python love I
+        </button>
+        <button type="button" class="btn-chip sample-btn" data-sentence="The capital of France is Paris">
+          The capital of France is Paris
+        </button>
+      </div>
+
+      <!-- Calculate button + model status line -->
+      <div class="action-bar">
+        <button type="button" id="calc-btn" class="btn-primary">
+          Calculate perplexity
+        </button>
+        <div id="model-status" class="status-line" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="model-status-text">Model not loaded yet (loads on first click)</span>
+        </div>
+      </div>
+
+      <!-- Clear red error message if model fails to load or input is invalid -->
+      <div id="model-error" class="error-box" role="alert"></div>
+    </section>
+
+    <!-- =====================================================
+         Section 2 – Probability of each token → perplexity
+         ===================================================== -->
+    <section class="card-3d" aria-labelledby="sec2-title">
+      <div class="section-header">
+        <h2 class="section-title" id="sec2-title">
+          <span class="step-pill">2</span>
+          Probability of each token → perplexity
+        </h2>
+      </div>
+
+      <div id="model-results">
+        <div class="empty-hint">
+          Click <strong>Calculate perplexity</strong> or pick a sample sentence above to download <code>Xenova/distilgpt2</code> and compute real token probabilities.
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         Section 3 – What does the model predict next?
+         ===================================================== -->
+    <section class="card-3d" aria-labelledby="sec3-title">
+      <div class="section-header">
+        <h2 class="section-title" id="sec3-title">
+          <span class="step-pill">3</span>
+          What does the model predict next?
+        </h2>
+      </div>
+
+      <div id="next-token-results">
+        <div class="empty-hint">
+          Run a sentence in Section 1 to see the top 8 next tokens predicted after your sentence.
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         Section 4 – Try it by hand (Simulated)
+         ===================================================== -->
+    <section class="card-3d" aria-labelledby="sec4-title">
+      <div class="section-header">
+        <h2 class="section-title" id="sec4-title">
+          <span class="step-pill">4</span>
+          Try it by hand
+        </h2>
+        <span class="simulated-badge">Simulated, not from the model</span>
+      </div>
+
+      <!-- Preset buttons -->
+      <div class="button-row" style="margin-top:0;">
+        <span class="row-label">Presets:</span>
+        <button type="button" class="btn-chip" id="preset-python">
+          I love Python
+        </button>
+        <button type="button" class="btn-chip" id="preset-eight">
+          All 1/8
+        </button>
+        <button type="button" class="btn-chip" id="preset-surprise">
+          One surprising word
+        </button>
+      </div>
+
+      <!-- Editable token + probability rows -->
+      <div id="hand-rows" class="hand-rows"></div>
+
+      <div class="button-row" style="margin-top:8px; margin-bottom:22px;">
+        <button type="button" class="btn-chip" id="add-token-btn">
+          + Add token
+        </button>
+      </div>
+
+      <div id="hand-error" class="error-box" style="margin-bottom:16px;"></div>
+      <div id="hand-results"></div>
+    </section>
+  </main>
+
+  <!-- =======================================================
+       Shared Math, Rendering & Section 4 ("Try it by hand")
+       Placed in a plain script so Section 4 works immediately
+       even before the CDN module finishes loading.
+       ======================================================= -->
+  <script>
+    // Replace spaces with "␣" (and newlines/tabs with visible symbols)
+    function formatVisibleToken(text) {
+      if (text === "") return "(empty)";
+      return text
+        .replace(/ /g, "␣")
+        .replace(/\n/g, "↵")
+        .replace(/\t/g, "⇥");
+    }
+
+    // Escape HTML special characters so user text is always safe to display
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Format a probability P cleanly for both clean presets (0.5) and tiny model values
+    function formatProb(p) {
+      if (p >= 0.001) {
+        return Number(p.toPrecision(4)).toString();
+      }
+      return p.toExponential(2);
+    }
+
+    // Format 1/P values cleanly
+    function formatInverseProb(invP) {
+      if (invP < 1000) {
+        return Number(invP.toFixed(2)).toString();
+      }
+      if (invP < 1e7) {
+        return Math.round(invP).toLocaleString("en-US");
+      }
+      return invP.toExponential(2);
+    }
+
+    // Format final perplexity (e.g., 2.32 for "I love Python", 8 for "All 1/8")
+    function formatPerplexity(ppl) {
+      if (ppl >= 1e6) return ppl.toExponential(2);
+      return ppl.toFixed(2).replace(/\.00$/, "");
+    }
+
+    // Format the product of all 1/P values, using logs if a long sentence overflows
+    function formatProductFromLogs(invValues, sumNegLn) {
+      let directProduct = 1;
+      for (const v of invValues) directProduct *= v;
+
+      if (Number.isFinite(directProduct) && directProduct < 1e12) {
+        const rounded = Number(directProduct.toFixed(2));
+        return rounded.toLocaleString("en-US", { maximumFractionDigits: 2 });
+      }
+      // Overflow-safe scientific notation from base-10 log
+      const log10Val = sumNegLn / Math.LN10;
+      const exp = Math.floor(log10Val);
+      const mantissa = Math.pow(10, log10Val - exp);
+      return `${mantissa.toFixed(2)} × 10^${exp}`;
+    }
+
+    // Build the token table + 3 perplexity steps used by both Section 2 and Section 4
+    function renderPerplexitySteps(items, targetEl) {
+      const N = items.length;
+      let sumNegLn = 0;
+      const invValues = [];
+
+      const rowsHtml = items.map((item, idx) => {
+        const p = item.prob;
+        const invP = 1 / p;
+        invValues.push(invP);
+        sumNegLn += -Math.log(p);
+
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><span class="token-chip">${escapeHtml(formatVisibleToken(item.token))}</span></td>
+            <td>${formatProb(p)}</td>
+            <td>${formatInverseProb(invP)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      // Compute perplexity safely in log-space: exp( average of -ln P )
+      const avgNegLn = sumNegLn / N;
+      const perplexity = Math.exp(avgNegLn);
+
+      const multiplicationChain = invValues.map(formatInverseProb).join(" × ");
+      const productText = formatProductFromLogs(invValues, sumNegLn);
+      const pplText = formatPerplexity(perplexity);
+
+      targetEl.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Token</th>
+                <th>Probability P</th>
+                <th>1/P</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="steps-grid">
+          <div class="calc-step">
+            <strong>Step 1 — Multiply all the 1/P values:</strong>
+            <div class="formula-text">${multiplicationChain} = <strong>${productText}</strong></div>
+          </div>
+
+          <div class="calc-step">
+            <strong>Step 2 — Count the tokens:</strong>
+            <div class="formula-text">N = <strong>${N}</strong></div>
+          </div>
+
+          <div class="perplexity-pedestal">
+            <div>
+              <strong style="color:#3730a3; font-size:1.05rem;">Step 3 — Perplexity = (product)<sup>1/N</sup></strong>
+              <div class="formula-text">(${productText})<sup>1/${N}</sup> = <strong>${pplText}</strong></div>
+              <div class="log-note">
+                Overflow-safe log formula: exp( average of −ln P ) = exp(${avgNegLn.toFixed(4)}) = ${pplText}
+              </div>
+            </div>
+            <div class="ppl-big-number" aria-label="Perplexity ${pplText}">${pplText}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =======================================================
+    // Section 4 — Interactive "Try it by hand" Calculator
+    // =======================================================
+    let handTokens = [];
+
+    const handRowsEl = document.getElementById("hand-rows");
+    const handResultsEl = document.getElementById("hand-results");
+    const handErrorEl = document.getElementById("hand-error");
+
+    function setHandPreset(rows) {
+      handTokens = rows.map(r => ({ token: r.token, probText: String(r.prob) }));
+      renderHandInputs();
+      updateHandCalculation();
+    }
+
+    function renderHandInputs() {
+      handRowsEl.innerHTML = handTokens.map((row, index) => `
+        <div class="hand-row">
+          <span class="row-num">${index + 1}</span>
+          <input
+            type="text"
+            class="hand-input hand-token-input"
+            data-index="${index}"
+            value="${escapeHtml(row.token)}"
+            aria-label="Token ${index + 1} text"
+            placeholder="Token"
+          />
+          <input
+            type="number"
+            step="any"
+            min="0.000001"
+            max="1"
+            class="hand-input hand-prob-input"
+            data-index="${index}"
+            value="${escapeHtml(row.probText)}"
+            aria-label="Token ${index + 1} probability"
+            placeholder="Probability (0–1)"
+          />
+          <button
+            type="button"
+            class="btn-remove"
+            data-remove="${index}"
+            ${handTokens.length <= 1 ? "disabled" : ""}
+          >
+            Remove
+          </button>
+        </div>
+      `).join("");
+    }
+
+    function updateHandCalculation() {
+      const parsed = [];
+      for (let i = 0; i < handTokens.length; i++) {
+        const p = Number(handTokens[i].probText);
+        if (!handTokens[i].probText.trim() || !Number.isFinite(p) || p <= 0 || p > 1) {
+          handErrorEl.style.display = "block";
+          handErrorEl.textContent = `Row ${i + 1}: Please enter a probability greater than 0 and at most 1.`;
+          handResultsEl.innerHTML = "";
+          return;
+        }
+        parsed.push({ token: handTokens[i].token || `(token ${i + 1})`, prob: p });
+      }
+
+      handErrorEl.style.display = "none";
+      renderPerplexitySteps(parsed, handResultsEl);
+    }
+
+    // Live updates as the user types in Section 4
+    handRowsEl.addEventListener("input", (e) => {
+      const idx = Number(e.target.dataset.index);
+      if (Number.isNaN(idx)) return;
+
+      if (e.target.classList.contains("hand-token-input")) {
+        handTokens[idx].token = e.target.value;
+      } else if (e.target.classList.contains("hand-prob-input")) {
+        handTokens[idx].probText = e.target.value;
+      }
+      updateHandCalculation();
+    });
+
+    // Remove button handler
+    handRowsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-remove]");
+      if (!btn || handTokens.length <= 1) return;
+      const idx = Number(btn.dataset.remove);
+      handTokens.splice(idx, 1);
+      renderHandInputs();
+      updateHandCalculation();
+    });
+
+    // "+ Add token" button
+    document.getElementById("add-token-btn").addEventListener("click", () => {
+      handTokens.push({ token: `token${handTokens.length + 1}`, probText: "0.5" });
+      renderHandInputs();
+      updateHandCalculation();
+    });
+
+    // Three presets for Section 4
+    document.getElementById("preset-python").addEventListener("click", () => {
+      setHandPreset([
+        { token: "I", prob: 0.5 },
+        { token: " love", prob: 0.8 },
+        { token: " Python", prob: 0.2 }
+      ]);
+    });
+
+    document.getElementById("preset-eight").addEventListener("click", () => {
+      setHandPreset(
+        Array.from({ length: 8 }, (_, i) => ({ token: `w${i + 1}`, prob: 0.125 }))
+      );
+    });
+
+    document.getElementById("preset-surprise").addEventListener("click", () => {
+      setHandPreset([
+        { token: "The", prob: 0.9 },
+        { token: " sky", prob: 0.9 },
+        { token: " is", prob: 0.9 },
+        { token: " banana", prob: 0.01 }
+      ]);
+    });
+
+    // Start Section 4 with the "I love Python" preset (perplexity 2.32)
+    setHandPreset([
+      { token: "I", prob: 0.5 },
+      { token: " love", prob: 0.8 },
+      { token: " Python", prob: 0.2 }
+    ]);
+
+    // Gentle 3D tilt when hovering over the perplexity pedestal cards
+    document.addEventListener("mousemove", (e) => {
+      const pedestal = e.target.closest(".perplexity-pedestal");
+      if (!pedestal) return;
+      const rect = pedestal.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      pedestal.style.transform = `perspective(700px) rotateX(${(-y * 5).toFixed(2)}deg) rotateY(${(x * 5).toFixed(2)}deg)`;
+    });
+
+    document.addEventListener("mouseout", (e) => {
+      const pedestal = e.target.closest(".perplexity-pedestal");
+      if (pedestal && !pedestal.contains(e.relatedTarget)) {
+        pedestal.style.transform = "";
+      }
+    });
+
+    // =======================================================
+    // Interactive 3D Background Scene (Polyhedra + Token Net)
+    // =======================================================
+    (function init3DBackground() {
+      const canvas = document.getElementById("bg-3d-canvas");
+      if (!canvas || !canvas.getContext) return;
+      const ctx = canvas.getContext("2d");
+
+      let width = 0;
+      let height = 0;
+      let mouseX = 0;
+      let mouseY = 0;
+      let smoothMouseX = 0;
+      let smoothMouseY = 0;
+      let pulseBoost = 0;
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      // Mouse parallax camera shift + energy ripple on button clicks
+      window.addEventListener("mousemove", (e) => {
+        mouseX = (e.clientX / Math.max(width, 1) - 0.5) * 2;
+        mouseY = (e.clientY / Math.max(height, 1) - 0.5) * 2;
+      });
+      document.addEventListener("click", (e) => {
+        if (e.target.closest("button")) pulseBoost = 1.0;
+      });
+
+      // 3D wireframe shapes: cube & octahedron vertices + edge pairs
+      const CUBE_VERTS = [
+        [-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],
+        [-1,-1, 1],[1,-1, 1],[1,1, 1],[-1,1, 1]
+      ];
+      const CUBE_EDGES = [
+        [0,1],[1,2],[2,3],[3,0],
+        [4,5],[5,6],[6,7],[7,4],
+        [0,4],[1,5],[2,6],[3,7]
+      ];
+      const OCTA_VERTS = [
+        [0, 1.3, 0],[0,-1.3, 0],[1.2, 0, 0],[-1.2, 0, 0],[0, 0, 1.2],[0, 0,-1.2]
+      ];
+      const OCTA_EDGES = [
+        [0,2],[0,3],[0,4],[0,5],
+        [1,2],[1,3],[1,4],[1,5],
+        [2,4],[4,3],[3,5],[5,2]
+      ];
+
+      // Place floating 3D polyhedra mostly along the left & right wings
+      const shapes = Array.from({ length: 10 }, (_, i) => {
+        const side = i % 2 === 0 ? -1 : 1;
+        return {
+          type: i % 3 === 0 ? "cube" : "octa",
+          x: side * (360 + (i * 73) % 320),
+          y: ((i * 137) % 680) - 340,
+          z: 80 + (i * 65) % 420,
+          size: 24 + (i % 4) * 9,
+          rx: i * 0.7,
+          ry: i * 1.1,
+          rz: i * 0.4,
+          vrx: (0.004 + (i % 3) * 0.002) * side,
+          vry: 0.006 + (i % 4) * 0.0015,
+          hue: i % 2 === 0 ? "99, 102, 241" : "124, 58, 237"
+        };
+      });
+
+      // Floating 3D neural token nodes streaming gently forward in Z-space
+      const LABELS = ["P(w)", "1/P", "−ln P", "exp()", "N", "␣", "GPT-2", "logits", "softmax", "PPL"];
+      const nodes = Array.from({ length: 34 }, (_, i) => ({
+        x: (Math.sin(i * 2.3) * 680),
+        y: (Math.cos(i * 1.7) * 420),
+        z: (i * 22) % 700 + 40,
+        vz: 0.45 + (i % 5) * 0.12,
+        label: i < LABELS.length ? LABELS[i] : null,
+        color: i % 2 === 0 ? "79, 70, 229" : "124, 58, 237"
+      }));
+
+      // Rotate a 3D point around X, Y, Z axes
+      function rotate3D(pt, rx, ry, rz) {
+        let [x, y, z] = pt;
+        const cy = Math.cos(ry), sy = Math.sin(ry);
+        let x1 = x * cy - z * sy;
+        let z1 = x * sy + z * cy;
+        const cx = Math.cos(rx), sx = Math.sin(rx);
+        let y2 = y * cx - z1 * sx;
+        let z2 = y * sx + z1 * cx;
+        const cz = Math.cos(rz), sz = Math.sin(rz);
+        return [x1 * cz - y2 * sz, x1 * sz + y2 * cz, z2];
+      }
+
+      // Project a 3D world point (x, y, z) onto the 2D screen
+      function project(x, y, z) {
+        const fov = 540;
+        const camX = smoothMouseX * 55;
+        const camY = smoothMouseY * 35;
+        const relZ = z + 260;
+        if (relZ <= 20) return null;
+        const scale = fov / relZ;
+        return {
+          sx: width / 2 + (x - camX) * scale,
+          sy: height / 2 + (y - camY) * scale,
+          scale
+        };
+      }
+
+      function drawFrame() {
+        ctx.clearRect(0, 0, width, height);
+
+        smoothMouseX += (mouseX - smoothMouseX) * 0.06;
+        smoothMouseY += (mouseY - smoothMouseY) * 0.06;
+        pulseBoost *= 0.94;
+        const speedMult = 1 + pulseBoost * 2.5;
+
+        // 1. Update & project neural nodes
+        const projectedNodes = [];
+        for (const n of nodes) {
+          n.z -= n.vz * speedMult;
+          if (n.z < 20) n.z = 720;
+
+          const p = project(n.x, n.y, n.z);
+          if (p) projectedNodes.push({ node: n, ...p });
+        }
+
+        // 2. Draw glowing 3D neural connection lines between nearby nodes
+        for (let i = 0; i < projectedNodes.length; i++) {
+          const a = projectedNodes[i];
+          for (let j = i + 1; j < projectedNodes.length; j++) {
+            const b = projectedNodes[j];
+            const dx = a.sx - b.sx;
+            const dy = a.sy - b.sy;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 155 && Math.abs(a.node.z - b.node.z) < 220) {
+              const alpha = (1 - dist / 155) * Math.min(a.scale, b.scale) * 0.28;
+              ctx.strokeStyle = `rgba(99, 102, 241, ${alpha.toFixed(3)})`;
+              ctx.lineWidth = 1.1;
+              ctx.beginPath();
+              ctx.moveTo(a.sx, a.sy);
+              ctx.lineTo(b.sx, b.sy);
+              ctx.stroke();
+            }
+          }
+        }
+
+        // 3. Draw neural nodes & floating 3D math badges
+        for (const p of projectedNodes) {
+          const r = Math.max(2, 4.8 * p.scale);
+          const alpha = Math.min(0.65, p.scale * 0.75);
+
+          ctx.fillStyle = `rgba(${p.node.color}, ${alpha.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (p.node.label && p.scale > 0.52) {
+            ctx.font = `600 ${Math.round(11 * p.scale)}px ui-monospace, SFMono-Regular, monospace`;
+            const textAlpha = Math.min(0.52, (p.scale - 0.45) * 0.9);
+            ctx.fillStyle = `rgba(67, 56, 202, ${textAlpha.toFixed(3)})`;
+            ctx.fillText(p.node.label, p.sx + r + 5, p.sy + 3);
+          }
+        }
+
+        // 4. Draw rotating 3D wireframe cubes & octahedra
+        for (const s of shapes) {
+          s.rx += s.vrx * speedMult;
+          s.ry += s.vry * speedMult;
+          const verts = s.type === "cube" ? CUBE_VERTS : OCTA_VERTS;
+          const edges = s.type === "cube" ? CUBE_EDGES : OCTA_EDGES;
+
+          const pts2D = verts.map((v) => {
+            const [rx, ry, rz] = rotate3D(v, s.rx, s.ry, s.rz);
+            return project(s.x + rx * s.size, s.y + ry * s.size, s.z + rz * s.size);
+          });
+
+          const centerProj = project(s.x, s.y, s.z);
+          if (!centerProj) continue;
+          const strokeAlpha = Math.min(0.34, centerProj.scale * 0.42);
+
+          ctx.strokeStyle = `rgba(${s.hue}, ${strokeAlpha.toFixed(3)})`;
+          ctx.lineWidth = Math.max(1, 1.6 * centerProj.scale);
+          ctx.beginPath();
+          for (const [i1, i2] of edges) {
+            const p1 = pts2D[i1];
+            const p2 = pts2D[i2];
+            if (!p1 || !p2) continue;
+            ctx.moveTo(p1.sx, p1.sy);
+            ctx.lineTo(p2.sx, p2.sy);
+          }
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(drawFrame);
+      }
+
+      // Render one static frame if the user prefers reduced motion, otherwise animate
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        drawFrame();
+      } else {
+        requestAnimationFrame(drawFrame);
+      }
+    })();
+
+    // Fallback flag in case the CDN module fails to import (e.g. no internet)
+    window.__transformersModuleLoaded = false;
+    window.addEventListener("load", () => {
+      const calcBtn = document.getElementById("calc-btn");
+      const sampleBtns = document.querySelectorAll(".sample-btn");
+      function showOfflineModuleError() {
+        if (window.__transformersModuleLoaded) return;
+        const errBox = document.getElementById("model-error");
+        errBox.style.display = "block";
+        errBox.textContent = "Error: Could not load Transformers.js from CDN. Please check your internet connection and reload the page.";
+      }
+      calcBtn.addEventListener("click", showOfflineModuleError);
+      sampleBtns.forEach(btn => btn.addEventListener("click", showOfflineModuleError));
+    });
+  </script>
+
+  <!-- =======================================================
+       Real Language Model in the Browser (Transformers.js v3)
+       ======================================================= -->
+  <script type="module">
+    import { AutoTokenizer, AutoModelForCausalLM, Tensor } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3";
+
+    window.__transformersModuleLoaded = true;
+
+    const MODEL_ID = "Xenova/distilgpt2";
+    const START_TOKEN_ID = 50256; // GPT-2 <|endoftext|> used as start marker
+
+    let tokenizer = null;
+    let model = null;
+    let loadingPromise = null;
+
+    const sentenceInput = document.getElementById("sentence-input");
+    const calcBtn = document.getElementById("calc-btn");
+    const sampleBtns = document.querySelectorAll(".sample-btn");
+    const statusBox = document.getElementById("model-status");
+    const statusText = document.getElementById("model-status-text");
+    const errorBox = document.getElementById("model-error");
+    const modelResultsEl = document.getElementById("model-results");
+    const nextTokenResultsEl = document.getElementById("next-token-results");
+
+    function setStatus(message, state) {
+      statusText.textContent = message;
+      statusBox.className = "status-line" + (state ? ` status-${state}` : "");
+    }
+
+    function showError(message) {
+      errorBox.style.display = "block";
+      errorBox.textContent = message;
+    }
+
+    function clearError() {
+      errorBox.style.display = "none";
+      errorBox.textContent = "";
+    }
+
+    // Numerically stable softmax: subtract max logit first so exp() never overflows
+    function stableSoftmax(logitSlice) {
+      let maxLogit = -Infinity;
+      for (let i = 0; i < logitSlice.length; i++) {
+        if (logitSlice[i] > maxLogit) maxLogit = logitSlice[i];
+      }
+
+      const probs = new Float64Array(logitSlice.length);
+      let sumExp = 0;
+      for (let i = 0; i < logitSlice.length; i++) {
+        const e = Math.exp(logitSlice[i] - maxLogit);
+        probs[i] = e;
+        sumExp += e;
+      }
+
+      for (let i = 0; i < probs.length; i++) {
+        probs[i] /= sumExp;
+      }
+      return probs;
+    }
+
+    // Load Xenova/distilgpt2 (q8) only when a button is first clicked
+    async function ensureModelLoaded() {
+      if (tokenizer && model) return;
+
+      if (!loadingPromise) {
+        setStatus("Downloading the model…", "loading");
+        loadingPromise = (async () => {
+          try {
+            tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID);
+            model = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
+              dtype: "q8"
+            });
+            setStatus("Model ready", "ready");
+          } catch (err) {
+            tokenizer = null;
+            model = null;
+            loadingPromise = null;
+            setStatus("Model failed to load", "");
+            throw err;
+          }
+        })();
+      }
+
+      await loadingPromise;
+    }
+
+    // Render Section 3: top 8 next-token predictions as horizontal bars
+    function renderTopNextTokens(lastPositionProbs) {
+      // Collect top 8 token ids by probability
+      const topK = 8;
+      const topItems = [];
+
+      for (let id = 0; id < lastPositionProbs.length; id++) {
+        const p = lastPositionProbs[id];
+        if (topItems.length < topK) {
+          topItems.push({ id, prob: p });
+          topItems.sort((a, b) => b.prob - a.prob);
+        } else if (p > topItems[topK - 1].prob) {
+          topItems[topK - 1] = { id, prob: p };
+          topItems.sort((a, b) => b.prob - a.prob);
+        }
+      }
+
+      const maxProb = topItems[0]?.prob || 1;
+
+      const barsHtml = topItems.map((item, idx) => {
+        const rawToken = tokenizer.decode([item.id]);
+        const visibleToken = formatVisibleToken(rawToken);
+        const pct = (item.prob * 100).toFixed(2);
+        // Scale bar width relative to top prediction so differences are easy to compare
+        const barWidth = Math.max(2, (item.prob / maxProb) * 100).toFixed(1);
+        const isTop = idx === 0;
+
+        return `
+          <div class="bar-row ${isTop ? "top-prediction" : ""}">
+            <div>
+              <span class="token-chip">${escapeHtml(visibleToken)}</span>
+              ${isTop ? '<span class="top-tag">Top</span>' : ""}
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${barWidth}%;"></div>
+            </div>
+            <div class="bar-pct">${pct}%</div>
+          </div>
+        `;
+      }).join("");
+
+      nextTokenResultsEl.innerHTML = `<div class="bars-list">${barsHtml}</div>`;
+    }
+
+    // Run DistilGPT-2 once on [50256, ...encoded] and update Sections 2 & 3
+    async function calculatePerplexity() {
+      clearError();
+      const sentence = sentenceInput.value;
+
+      if (!sentence.trim()) {
+        showError("Please enter a sentence with at least one word.");
+        return;
+      }
+
+      calcBtn.disabled = true;
+      sampleBtns.forEach(b => (b.disabled = true));
+
+      try {
+        await ensureModelLoaded();
+
+        // Encode sentence and prepend 50256 so the first word gets a probability
+        const encodedIds = tokenizer.encode(sentence);
+        if (!encodedIds || encodedIds.length === 0) {
+          showError("The tokenizer produced 0 tokens for this input.");
+          return;
+        }
+
+        const allIds = [START_TOKEN_ID, ...encodedIds];
+        const seqLen = allIds.length;
+
+        // Build int64 Tensor inputs of shape [1, n]
+        const inputIdsTensor = new Tensor(
+          "int64",
+          BigInt64Array.from(allIds, id => BigInt(id)),
+          [1, seqLen]
+        );
+        const attentionMaskTensor = new Tensor(
+          "int64",
+          BigInt64Array.from(allIds, () => 1n),
+          [1, seqLen]
+        );
+
+        // Run the model once on all token ids
+        const outputs = await model({
+          input_ids: inputIdsTensor,
+          attention_mask: attentionMaskTensor
+        });
+
+        // logits has shape [1, n, vocabulary]
+        const logits = outputs.logits;
+        const vocabSize = logits.dims[2];
+        const logitsData = logits.data;
+
+        // For each real token at index i (1..n-1), read logits at position i - 1
+        const tokenBreakdown = [];
+        for (let i = 1; i < seqLen; i++) {
+          const tokenId = allIds[i];
+          const prevPosOffset = (i - 1) * vocabSize;
+          const prevLogits = logitsData.subarray(prevPosOffset, prevPosOffset + vocabSize);
+          const probs = stableSoftmax(prevLogits);
+
+          tokenBreakdown.push({
+            token: tokenizer.decode([tokenId]),
+            prob: probs[tokenId]
+          });
+        }
+
+        // Update Section 2: Token table + 3 perplexity steps
+        renderPerplexitySteps(tokenBreakdown, modelResultsEl);
+
+        // Update Section 3: Top 8 next tokens from logits at the very last position
+        const lastPosOffset = (seqLen - 1) * vocabSize;
+        const lastLogits = logitsData.subarray(lastPosOffset, lastPosOffset + vocabSize);
+        const nextProbs = stableSoftmax(lastLogits);
+        renderTopNextTokens(nextProbs);
+
+        setStatus("Model ready", "ready");
+      } catch (err) {
+        console.error(err);
+        showError(`Failed to load or run the model: ${err?.message || String(err)}. Never showing simulated values as model output.`);
+      } finally {
+        calcBtn.disabled = false;
+        sampleBtns.forEach(b => (b.disabled = false));
+      }
+    }
+
+    // Wire up "Calculate perplexity" button
+    calcBtn.addEventListener("click", () => {
+      calculatePerplexity();
+    });
+
+    // Allow pressing Enter in the sentence input box
+    sentenceInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        calculatePerplexity();
+      }
+    });
+
+    // Wire up the three sample buttons: fill the box and calculate immediately
+    sampleBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        sentenceInput.value = btn.dataset.sentence;
+        calculatePerplexity();
+      });
+    });
+  </script>
+</body>
+</html>
